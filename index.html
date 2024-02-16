@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DREAM IT</title>
+  <script src="https://cdn.jsdelivr.net/npm/webmidi@2"></script>
+  <script src="https://cdn.jsdelivr.net/gh/gasman/jasmid@master/stream.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/gasman/jasmid@master/midifile.js"></script>
+  <!-- Incluir WebMIDIAPIShim para compatibilidad con Safari en iOS -->
+  <script src="https://cdn.jsdelivr.net/npm/webmidiapishim"></script>
+  <style>
+    /* Tus estilos CSS */
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    #container {
+      text-align: center;
+      border: 6px solid blue;
+      padding: 30px;
+      margin-bottom: 20px;
+      background-color: lightblue;
+      color: black;
+    }
+    #fileContainer {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: 20px;
+    }
+    #fileInputContainer, #midiDeviceSelectContainer, #useBmidContainer, #useAmidContainer, #additionalButtonsContainer, #buyContainer {
+      width: fit-content;
+      margin-top: 10px;
+    }
+    .button {
+      padding: 6px 15px;
+      font-size: 0.8em;
+      color: white;
+      border: 1px solid transparent;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .button.selected {
+      background-color: green;
+    }
+    .button:not(.selected):not(.control) {
+      background-color: blue;
+    }
+    .button.control:not(.selected) {
+      background-color: gray;
+    }
+    #fileName {
+      margin-top: 10px;
+      font-style: italic;
+      display: block;
+    }
+    #midiDeviceSelect {
+      width: fit-content;
+      max-width: 100%;
+    }
+    h1 {
+      font-size: 4em;
+      color: green;
+      margin-top: -10px;
+    }
+    #buttonsContainer {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    #buyButton {
+      padding: 4px 10px;
+      background: linear-gradient(to right, #FF8C00, #FFA500);
+      margin-top: 10px;
+      border-width: 1px;
+    }
+    #buyButton span {
+      font-size: 0.9em;
+    }
+    #copyright {
+      margin-top: 20px;
+      color: green;
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <h1 style="margin-bottom: 10px;">DREAM IT</h1>
+    <img src="https://cdn.jsdelivr.net/gh/rafgim/NUEVO@main/mejorr.png" alt="Dream It Image" style="max-width: 130px;">
+    <div id="fileContainer">
+      <div id="fileInputContainer" style="margin-bottom: 10px;">
+        <label for="midiFile" class="button" id="fileButton">Open MIDI<input type="file" id="midiFile" accept=".mid" style="display:none;"></label>
+      </div>
+      <span id="fileName"></span>
+      <div id="midiDeviceSelectContainer" style="margin-bottom: 20px;">
+        <select id="midiDeviceSelect"></select>
+      </div>
+      <div id="buttonsContainer">
+        <div id="useBmidContainer">
+          <button id="useBmidButton" class="button">Preludio nº1 (Bach)</button>
+        </div>
+        <div id="useAmidContainer">
+          <button id="useAmidButton" class="button">Dream nº1 (Rafael Gimeno)</button>
+        </div>
+        <div id="additionalButtonsContainer">
+          <button id="midiLocalControlOn" class="button control">MIDI Local Control ON</button>
+          <button id="midiLocalControlOff" class="button control">MIDI Local Control OFF</button>
+        </div>
+      </div>
+      <div id="buyContainer">
+        <button id="buyButton" class="button"><span>🛒 BUY NOW MIDIs for DREAM IT</span></button>
+      </div>
+      <div id="copyright">
+        <a href="https://www.rafaelgimeno.com/" target="_blank" style="color: inherit; text-decoration: none;">© By Rafael Gimeno</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Tu código JavaScript
+    document.addEventListener('DOMContentLoaded', function () {
+      var midiDevices = [];
+      var notesToPlay = [];
+      var currentGroupStartIndex = 0;
+      var activeNotes = {};
+      var sustainPedal = false;
+      var lastNoteTime = 0;
+
+      const SIMULTANEOUS_NOTE_THRESHOLD = 50;
+
+      function populateMIDIDeviceSelect() {
+        var selectElement = document.getElementById('midiDeviceSelect');
+        selectElement.innerHTML = '';
+        midiDevices.forEach(function (device) {
+          var option = document.createElement('option');
+          option.text = device.name;
+          option.value = device.id;
+          selectElement.add(option);
+        });
+      }
+
+      WebMidi.enable(function (err) {
+        if (err) {
+          console.error('Web MIDI is not enabled:', err);
+          return;
+        }
+        
+        midiDevices = WebMidi.outputs;
+        populateMIDIDeviceSelect();
+
+        midiDevices.forEach(output => {
+          output.sendProgramChange(0, 1);
+        });
+
+        WebMidi.inputs.forEach(function(input) {
+          input.addListener('noteon', "all", function(e) {
+            var triggeredVelocity = e.velocity;
+            var currentTime = new Date().getTime();
+            if (currentTime - lastNoteTime < SIMULTANEOUS_NOTE_THRESHOLD) {
+              return;
+            }
+            lastNoteTime = currentTime;
+
+            if (notesToPlay.length > 0 && document.getElementById('midiDeviceSelect').value) {
+              var deviceId = document.getElementById('midiDeviceSelect').value;
+              var output = WebMidi.getOutputById(deviceId);
+
+              let currentGroupEndIndex = findNextGroupStartIndex(currentGroupStartIndex);
+
+              if (output && currentGroupStartIndex < notesToPlay.length) {
+                for (let i = currentGroupStartIndex; i < currentGroupEndIndex; i++) {
+                  var note = notesToPlay[i];
+                  output.playNote(note.noteNumber, 1, {
+                    velocity: triggeredVelocity
+                  });
+                  if (!activeNotes.hasOwnProperty(e.note.number)) {
+                    activeNotes[e.note.number] = [];
+                  }
+                  activeNotes[e.note.number].push(note.noteNumber);
+                }
+                currentGroupStartIndex = currentGroupEndIndex;
+              }
+            }
+          });
+
+          input.addListener('noteoff', "all", function(e) {
+            if (document.getElementById('midiDeviceSelect').value) {
+              var deviceId = document.getElementById('midiDeviceSelect').value;
+              var output = WebMidi.getOutputById(deviceId);
+
+              if (output && e.note && activeNotes.hasOwnProperty(e.note.number)) {
+                var notesToStop = activeNotes[e.note.number];
+                notesToStop.forEach(noteNumber => {
+                  output.stopNote(noteNumber, 1);
+                });
+                delete activeNotes[e.note.number];
+              }
+            }
+          });
+
+          input.addListener('controlchange', "all", function(e) {
+            if (e.controller.number === 64) {
+              sustainPedal = e.value > 63;
+              applySustainEffect();
+            }
+          });
+        });
+      });
+
+      document.getElementById('midiFile').addEventListener('change', function(e) {
+        selectButton('fileButton');
+        var reader = new FileReader();
+        reader.onload = function(e) {
+          try {
+            var midi = new MidiFile(e.target.result);
+            extractNotesFromMidi(midi);
+          } catch (error) {
+            console.error("Error parsing MIDI file:", error);
+          }
+        };
+        reader.readAsBinaryString(e.target.files[0]);
+        
+        document.getElementById('fileName').textContent = e.target.files[0].name;
+      });
+
+      document.getElementById('useBmidButton').addEventListener('click', function() {
+        selectButton('useBmidButton');
+        loadAndUseMidi('https://cdn.jsdelivr.net/gh/rafgim/NUEVO@main/1.mid', 'Preludio nº1 (Bach).mid');
+      });
+
+      document.getElementById('useAmidButton').addEventListener('click', function() {
+        selectButton('useAmidButton');
+        loadAndUseMidi('https://cdn.jsdelivr.net/gh/rafgim/NUEVO@main/2.mid', 'Dream nº1 (Rafael Gimeno).mid');
+      });
+
+      document.getElementById('midiLocalControlOn').addEventListener('click', function() {
+        sendLocalControlMessage(true);
+        document.getElementById('midiLocalControlOn').classList.add('selected');
+        document.getElementById('midiLocalControlOff').classList.remove('selected');
+      });
+
+      document.getElementById('midiLocalControlOff').addEventListener('click', function() {
+        sendLocalControlMessage(false);
+        document.getElementById('midiLocalControlOff').classList.add('selected');
+        document.getElementById('midiLocalControlOn').classList.remove('selected');
+      });
+
+      document.getElementById('buyButton').addEventListener('click', function() {
+        window.location.href = "https://07127f-5c.myshopify.com/products/midis-for-dream-it";
+      });
+
+      function selectButton(buttonId) {
+        document.querySelectorAll('.button').forEach(button => {
+          button.classList.remove('selected');
+        });
+        document.getElementById(buttonId).classList.add('selected');
+      }
+
+      function loadAndUseMidi(url, fileName) {
+  fetch(url)
+    .then(response => response.arrayBuffer())
+    .then(data => {
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          var midi = new MidiFile(e.target.result);
+          extractNotesFromMidi(midi);
+        } catch (error) {
+          console.error("Error parsing MIDI file:", error);
+        }
+      };
+      reader.readAsBinaryString(new Blob([data])); // Elimina el tipo 'audio/midi'
+      
+      document.getElementById('fileName').textContent = fileName;
+    })
+    .catch(error => console.error(`Error fetching ${fileName}:`, error));
+}
+
+
+      function extractNotesFromMidi(midi) {
+        notesToPlay = [];
+        currentGroupStartIndex = 0;
+        var absoluteTime = 0;
+        
+        midi.tracks.forEach(track => {
+          absoluteTime = 0;
+          track.forEach(event => {
+            if (event.deltaTime) {
+              absoluteTime += event.deltaTime;
+            }
+            if (event.subtype === 'noteOn') {
+              notesToPlay.push({
+                noteNumber: event.noteNumber,
+                velocity: event.velocity,
+                channel: 1,
+                time: absoluteTime
+              });
+            }
+          });
+        });
+
+        notesToPlay.sort((a, b) => a.time - b.time);
+      }
+
+      function findNextGroupStartIndex(startIndex) {
+        if (startIndex >= notesToPlay.length) return startIndex;
+        let currentTime = notesToPlay[startIndex].time;
+        let index = startIndex + 1;
+        while (index < notesToPlay.length && notesToPlay[index].time === currentTime) {
+          index++;
+        }
+        return index;
+      }
+
+      function applySustainEffect() {
+        if (!document.getElementById('midiDeviceSelect').value) return;
+        var deviceId = document.getElementById('midiDeviceSelect').value;
+        var output = WebMidi.getOutputById(deviceId);
+        output.sendControlChange(64, sustainPedal ? 127 : 0);
+      }
+
+      function sendLocalControlMessage(enable) {
+        if (navigator.requestMIDIAccess) {
+          navigator.requestMIDIAccess()
+          .then(function(midiAccess) {
+            var outputs = midiAccess.outputs.values();
+            for (var output = outputs.next(); output && !output.done; output = outputs.next()) {
+              output.value.send([0xB0, 0x7A, enable ? 0x7F : 0x00]);
+            }
+          })
+          .catch(function(error) {
+            console.log('Error accessing MIDI devices: ' + error);
+          });
+        } else {
+          console.log('Web MIDI API is not available in this browser.');
+        }
+      }
+    });
+  </script>
+</body>
+</html>
