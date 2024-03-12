@@ -229,7 +229,7 @@
         notesToPlay.forEach(note => {
           const x = (note.time * (canvasWidth / totalTime) * scale) + xOffset - lastCanvasOffset.x;
           const y = canvasHeight - (note.noteNumber * noteHeight * scale) - lastCanvasOffset.y;
-          const width = 1 * scale; // Ancho de cada nota (ajustar según se necesite)
+          const width = 0.5 * scale; // Ancho de cada nota (ajustar según se necesite)
           ctx.fillStyle = 'darkblue'; // Color por defecto para las notas no resaltadas
           ctx.fillRect(x, y, width, noteHeight * scale);
         });
@@ -238,7 +238,7 @@
         highlightedNotes.forEach(note => {
           const x = (note.time * (canvasWidth / totalTime) * scale) + xOffset - lastCanvasOffset.x;
           const y = canvasHeight - (note.noteNumber * noteHeight * scale) - lastCanvasOffset.y;
-          const width = 1 * scale; // Ancho de cada nota (ajustar según se necesite)
+          const width = 0.5 * scale; // Ancho de cada nota (ajustar según se necesite)
           ctx.fillStyle = 'green'; // Color rojo para la nota pulsada
           ctx.fillRect(x, y, width, noteHeight * scale);
         });
