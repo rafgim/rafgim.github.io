@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DREAM IT</title>
   <!-- Incluir WebMIDIAPIShim para compatibilidad con Safari en iOS -->
-  <script src="https://github.com/cwilso/WebMIDIAPIShim/blob/gh-pages/web-midi-api/WebMIDIAPI.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/webmidiapishim"></script>
   <script src="https://cdn.jsdelivr.net/npm/webmidi@2"></script>
   <script src="https://cdn.jsdelivr.net/gh/gasman/jasmid@master/stream.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/gasman/jasmid@master/midifile.js"></script>
@@ -258,51 +258,73 @@
 
         WebMidi.inputs.forEach(function(input) {
           input.addListener('noteon', "all", function(e) {
-            var triggeredVelocity = e.velocity;
-            var currentTime = new Date().getTime();
-            if (currentTime - lastNoteTime < SIMULTANEOUS_NOTE_THRESHOLD) {
-              return;
-            }
-            lastNoteTime = currentTime;
+    var triggeredVelocity = e.velocity;
+    var currentTime = new Date().getTime();
+    if (currentTime - lastNoteTime < SIMULTANEOUS_NOTE_THRESHOLD) {
+        return;
+    }
+    lastNoteTime = currentTime;
 
-            if (notesToPlay.length > 0 && document.getElementById('midiDeviceSelect').value) {
-              var deviceId = document.getElementById('midiDeviceSelect').value;
-              var output = WebMidi.getOutputById(deviceId);
+    if (notesToPlay.length > 0 && document.getElementById('midiDeviceSelect').value) {
+        var deviceId = document.getElementById('midiDeviceSelect').value;
+        var output = WebMidi.getOutputById(deviceId);
 
-              let currentGroupEndIndex = findNextGroupStartIndex(currentNoteIndex);
+        let currentGroupEndIndex = findNextGroupStartIndex(currentNoteIndex);
 
-              if (output && currentNoteIndex < notesToPlay.length) {
-                const notesToHighlight = notesToPlay.slice(currentNoteIndex, currentGroupEndIndex).map(note => note.noteNumber);
-                highlightNotes(notesToHighlight);
-                for (let i = currentNoteIndex; i < currentGroupEndIndex; i++) {
-                  var note = notesToPlay[i];
-                  output.playNote(note.noteNumber, 1, {
-                    velocity: triggeredVelocity
-                  });
-                  if (!activeNotes.hasOwnProperty(e.note.number)) {
-                    activeNotes[e.note.number] = [];
-                  }
-                  activeNotes[e.note.number].push(note.noteNumber);
+        if (output && currentNoteIndex < notesToPlay.length) {
+            const notesToHighlight = notesToPlay.slice(currentNoteIndex, currentGroupEndIndex).map(note => note.noteNumber);
+            highlightNotes(notesToHighlight);
+            for (let i = currentNoteIndex; i < currentGroupEndIndex; i++) {
+                var note = notesToPlay[i];
+                // Verificar si la nota está en el canal 6
+                if (note.channel === 5) {
+                    // Duplicar la intensidad
+                    output.playNote(note.noteNumber, 1, {
+                        velocity: Math.min(triggeredVelocity * 1.2, 127) // Asegurarse de que no exceda el límite de 127
+                    });
+                } else {
+                    output.playNote(note.noteNumber, 1, {
+                        velocity: triggeredVelocity
+                    });
                 }
-                currentNoteIndex = currentGroupEndIndex;
-              }
+                if (!activeNotes.hasOwnProperty(e.note.number)) {
+                    activeNotes[e.note.number] = [];
+                }
+                activeNotes[e.note.number].push(note.noteNumber);
             }
-          });
+            currentNoteIndex = currentGroupEndIndex;
+        }
+    }
+});
 
-          input.addListener('noteoff', "all", function(e) {
-            if (document.getElementById('midiDeviceSelect').value) {
-              var deviceId = document.getElementById('midiDeviceSelect').value;
-              var output = WebMidi.getOutputById(deviceId);
+input.addListener('noteoff', "all", function(e) {
+    if (document.getElementById('midiDeviceSelect').value) {
+        var deviceId = document.getElementById('midiDeviceSelect').value;
+        var output = WebMidi.getOutputById(deviceId);
 
-              if (output && e.note && activeNotes.hasOwnProperty(e.note.number)) {
-                var notesToStop = activeNotes[e.note.number];
-                notesToStop.forEach(noteNumber => {
-                  output.stopNote(noteNumber, 1);
-                });
-                delete activeNotes[e.note.number];
-              }
-            }
-          });
+        if (output && e.note && activeNotes.hasOwnProperty(e.note.number)) {
+            var notesToStop = activeNotes[e.note.number];
+            notesToStop.forEach(noteNumber => {
+                // Verificar si la nota está en el canal 6
+                const note = notesToPlay.find(note => note.noteNumber === noteNumber);
+                if (note.channel === 5) {
+                    // Duplicar la intensidad
+                    output.stopNote(noteNumber, 1, {
+                        velocity: Math.min(note.velocity * 1.2, 127) // Asegurarse de que no exceda el límite de 127
+                    });
+                } else {
+                    output.stopNote(noteNumber, 1, {
+                        velocity: note.velocity
+                    });
+                }
+            });
+            delete activeNotes[e.note.number];
+        }
+    }
+});
+
+
+
 
           input.addListener('controlchange', "all", function(e) {
             if (e.controller.number === 64) {
@@ -413,7 +435,7 @@
               notesToPlay.push({
                 noteNumber: event.noteNumber,
                 velocity: event.velocity,
-                channel: 1,
+                channel: event.channel,
                 time: absoluteTime
               });
             }
