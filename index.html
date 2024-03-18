@@ -279,29 +279,45 @@
         if (output && currentNoteIndex < notesToPlay.length) {
             const notesToHighlight = notesToPlay.slice(currentNoteIndex, currentGroupEndIndex).map(note => note.noteNumber);
             highlightNotes(notesToHighlight);
+            
+            let totalVelocity = 0;
             for (let i = currentNoteIndex; i < currentGroupEndIndex; i++) {
-                var note = notesToPlay[i];
-                // Verificar si la nota está en el canal 6
-                if (note.channel === 5) {
-    // Duplicar la intensidad solo si la intensidad original no es 127
-    let newVelocity = triggeredVelocity === 127 ? 127 : Math.min(triggeredVelocity * 1.2, 127);
-    output.playNote(note.noteNumber, 1, {
-        velocity: newVelocity
-    });
-} else {
-    output.playNote(note.noteNumber, 1, {
-        velocity: triggeredVelocity
-    });
-}
-                if (!activeNotes.hasOwnProperty(e.note.number)) {
-                    activeNotes[e.note.number] = [];
-                }
-                activeNotes[e.note.number].push(note.noteNumber);
+                totalVelocity += notesToPlay[i].channel === 5 ? Math.min(triggeredVelocity * 1.2, 127) : triggeredVelocity;
             }
+
+            if (totalVelocity > 127) {
+                // Reducir la intensidad de una de las notas para que la suma no exceda 127
+                const scaleFactor = 127 / totalVelocity;
+                for (let i = currentNoteIndex; i < currentGroupEndIndex; i++) {
+                    const note = notesToPlay[i];
+                    const adjustedVelocity = note.channel === 5 ? Math.min(triggeredVelocity * scaleFactor * 1.2, 127) : triggeredVelocity * scaleFactor;
+                    output.playNote(note.noteNumber, 1, {
+                        velocity: adjustedVelocity
+                    });
+                    if (!activeNotes.hasOwnProperty(e.note.number)) {
+                        activeNotes[e.note.number] = [];
+                    }
+                    activeNotes[e.note.number].push(note.noteNumber);
+                }
+            } else {
+                // Reproducir las notas con las intensidades originales
+                for (let i = currentNoteIndex; i < currentGroupEndIndex; i++) {
+                    const note = notesToPlay[i];
+                    output.playNote(note.noteNumber, 1, {
+                        velocity: note.channel === 5 ? Math.min(triggeredVelocity * 1.2, 127) : triggeredVelocity
+                    });
+                    if (!activeNotes.hasOwnProperty(e.note.number)) {
+                        activeNotes[e.note.number] = [];
+                    }
+                    activeNotes[e.note.number].push(note.noteNumber);
+                }
+            }
+            
             currentNoteIndex = currentGroupEndIndex;
         }
     }
 });
+
 
 input.addListener('noteoff', "all", function(e) {
     if (document.getElementById('midiDeviceSelect').value) {
