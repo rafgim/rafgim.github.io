@@ -247,7 +247,7 @@
           ctx.fillRect(x, y, width, noteHeight * scale);
         });
       }
-
+var pianoChannels = [1, 6]; 
       WebMidi.enable(function (err) {
         if (err) {
           console.error('Web MIDI is not enabled:', err);
@@ -281,13 +281,14 @@
             highlightNotes(notesToHighlight);
             for (let i = currentNoteIndex; i < currentGroupEndIndex; i++) {
                 var note = notesToPlay[i];
-                // Verificar si la nota está en el canal 6
-                if (note.channel === 5) {
-                    // Duplicar la intensidad
+                // Aquí verificamos si la nota debe reproducirse en los canales 1 y 6
+                if (pianoChannels.includes(note.channel)) {
                     output.playNote(note.noteNumber, 1, {
-                        velocity: Math.min(triggeredVelocity * 1.2, 127) // Asegurarse de que no exceda el límite de 127
+                        velocity: triggeredVelocity
                     });
                 } else {
+                    // Aquí manejas la reproducción de notas para otros canales
+                    // Por ejemplo, puedes dejar esto como está si no necesitas hacer nada especial para otros canales
                     output.playNote(note.noteNumber, 1, {
                         velocity: triggeredVelocity
                     });
@@ -301,6 +302,7 @@
         }
     }
 });
+
 
 input.addListener('noteoff', "all", function(e) {
     if (document.getElementById('midiDeviceSelect').value) {
