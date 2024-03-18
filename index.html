@@ -285,7 +285,7 @@
                 if (note.channel === 5) {
                     // Duplicar la intensidad
                     output.playNote(note.noteNumber, 1, {
-                        velocity: triggeredVelocity * 1.2 // Asegurarse de que no exceda el límite de 127
+                        velocity: Math.min(triggeredVelocity * 1.2, 125) // Asegurarse de que no exceda el límite de 127
                     });
                 } else {
                     output.playNote(note.noteNumber, 1, {
@@ -315,7 +315,7 @@ input.addListener('noteoff', "all", function(e) {
                 if (note.channel === 5) {
                     // Duplicar la intensidad
                     output.stopNote(noteNumber, 1, {
-                        velocity: note.velocity * 1.2// Asegurarse de que no exceda el límite de 127
+                        velocity:  Math.min(note.velocity * 1.2, 125)// Asegurarse de que no exceda el límite de 127
                     });
                 } else {
                     output.stopNote(noteNumber, 1, {
