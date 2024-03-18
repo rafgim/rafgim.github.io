@@ -281,10 +281,17 @@ var pianoChannels = [1, 6];
             highlightNotes(notesToHighlight);
             for (let i = currentNoteIndex; i < currentGroupEndIndex; i++) {
                 var note = notesToPlay[i];
-                // Aquí verificamos si la nota debe reproducirse en los canales 1 y 6
+                // Aquí verificamos si la nota debe reproducirse en los canales 1 y 5
                 if (pianoChannels.includes(note.channel)) {
                     output.playNote(note.noteNumber, 1, {
                         velocity: triggeredVelocity
+                    });
+                } else if (note.channel === 5) {
+                    // Verificamos si es una nota del canal 5
+                    // Ajustamos la intensidad para que no exceda 127 y aumentamos su volumen
+                    const adjustedVelocity = Math.min(triggeredVelocity * 1.2, 127);
+                    output.playNote(note.noteNumber, 1, {
+                        velocity: adjustedVelocity
                     });
                 } else {
                     // Aquí manejas la reproducción de notas para otros canales
