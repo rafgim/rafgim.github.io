@@ -283,15 +283,16 @@
                 var note = notesToPlay[i];
                 // Verificar si la nota está en el canal 6
                 if (note.channel === 5) {
-                    // Duplicar la intensidad
-                    output.playNote(note.noteNumber, 1, {
-                        velocity: Math.min(triggeredVelocity * 1.2, 127) // Asegurarse de que no exceda el límite de 127
-                    });
-                } else {
-                    output.playNote(note.noteNumber, 1, {
-                        velocity: triggeredVelocity
-                    });
-                }
+    // Duplicar la intensidad solo si la intensidad original no es 127
+    let newVelocity = triggeredVelocity === 127 ? 127 : Math.min(triggeredVelocity * 1.2, 127);
+    output.playNote(note.noteNumber, 1, {
+        velocity: newVelocity
+    });
+} else {
+    output.playNote(note.noteNumber, 1, {
+        velocity: triggeredVelocity
+    });
+}
                 if (!activeNotes.hasOwnProperty(e.note.number)) {
                     activeNotes[e.note.number] = [];
                 }
