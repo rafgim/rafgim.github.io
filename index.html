@@ -283,25 +283,24 @@
                 var note = notesToPlay[i];
                 // Verificar si la nota está en el canal 6
                 if (note.channel === 5) {
-                    // Calcular la intensidad actual de la nota del canal 1
-                    const currentNote1 = activeNotes[note.noteNumber].find(n => n.channel === 0);
-                    const currentNoteIntensity = currentNote1 ? currentNote1.velocity : 0;
-                    // Calcular la suma de las intensidades del canal 6 y del canal 1
-                    const totalIntensity = (triggeredVelocity * 1.2) + currentNoteIntensity;
-                    // Si la suma total excede 127, ajustar las intensidades proporcionalmente
-                    if (totalIntensity > 127) {
-                        const adjustmentFactor = 127 / totalIntensity;
-                        output.playNote(note.noteNumber, 1, {
-                            velocity: (triggeredVelocity * 1.2) * adjustmentFactor,
-                        });
-                    } else {
-                        output.playNote(note.noteNumber, 1, {
-                            velocity: triggeredVelocity * 1.2,
-                        });
+                    // Obtener la intensidad actual de la nota del canal 1 si existe
+                    let channel1Velocity = 0;
+                    if (activeNotes.hasOwnProperty(e.note.number)) {
+                        const notesToStop = activeNotes[e.note.number];
+                        const channel1Note = notesToPlay.find(note => note.channel !== 5 && notesToStop.includes(note.noteNumber));
+                        if (channel1Note) {
+                            channel1Velocity = channel1Note.velocity;
+                        }
                     }
+
+                    // Duplicar la intensidad de la nota del canal 6
+                    const newVelocity = Math.min(triggeredVelocity * 1.2, 127 - channel1Velocity);
+                    output.playNote(note.noteNumber, 1, {
+                        velocity: newVelocity
+                    });
                 } else {
                     output.playNote(note.noteNumber, 1, {
-                        velocity: triggeredVelocity,
+                        velocity: triggeredVelocity
                     });
                 }
                 if (!activeNotes.hasOwnProperty(e.note.number)) {
